@@ -1,25 +1,154 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Diego Miranda-Saavedra"
+date: "2/12/2018"
 output: 
   html_document:
     keep_md: true
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+## (1) Loading and preprocessing the data
+Here we load the data, inspect the structure of the object, and do a basic summary to find that the 2304 NA values described in the introduction are in the 'steps' column (as the introduction says). 
+```{r data loading and inspection}
+
+d <- read.csv("/Users/diego/Documents/MOOCs/ReproducibleResearch/Project1/activity.csv", header=TRUE)
+
+head(d)
+
+dim(d)
+
+summary(d)
+
+length(which(is.na(d$steps)))
+```
+
+
+## (2) What is mean total number of steps taken per day?
+
+(2.1) Calculate the total number of steps taken per day. 
+
+For this I understand that I need to calculate the total number of steps for each day (by adding up all the steps for all intervals for any one day).
+
+```{r data analysis, question 2.1}
+
+d_agg <- aggregate(d$steps, by=list(Date=d$date), FUN=sum, na.rm=TRUE)
+
+totalSteps <- sum(d_agg$x)
+totalSteps
+
+```
+
+The total number of steps across all 61 days is 570608.
+
+(2.2) Make a histogram of the total number of steps taken each day. Here I understand that I have to plot the total number of steps for each day, as calculate in the previous step.
+
+```{r data analysis, question 2.2}
+
+hist(d_agg$x, breaks=30)
+
+```
+
+(2.3) Calculate and report the mean and median of the total number of steps taken per day
+
+```{r data analysis, question 2.3}
+mean(d_agg$x, na.rm=TRUE)
+median(d_agg$x, na.rm=TRUE)
+```
+Average number of steps per day: 9354.23
+Median number of steps per day: 10395
 
 
 
-## What is mean total number of steps taken per day?
+## (3) What is the average daily activity pattern?
+
+```{r data analysis, question 3}
+
+d_agg_interval <- aggregate(d$steps, by=list(Interval=d$interval), FUN=mean, na.rm=TRUE)
+
+plot (d_agg_interval, type="l")
+
+d_agg_interval_ordered <- d_agg_interval[order(d_agg_interval$x),]
+
+tail (d_agg_interval_ordered)
+```
+Interval 835 contains on average the maximum number of steps (206.1698).
 
 
 
-## What is the average daily activity pattern?
+## (4) Imputing missing values
+
+(4.1) Calculate and report the total number of missing values in the dataset.
+
+```{r data analysis, question 4.1}
+
+length(which(is.na(d$steps)))
+
+```
+
+(4.2, 4.3) Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+If you want to substitute the NA values from the original object (d), every time you encounter an 'NA' in the original dataset you have to retrieve the average value for that interval from object 'd_agg_interval' and put it in place of the 'NA'.
+
+Results are stored into a new data frame (d.imput).
+
+```{r data analysis, questions 4.2, 4.3}
+d.imput <- data.frame()
+
+for (i in 1:nrow(d)) {
+  row <- d[i,]
+  if (is.na(row$steps)==TRUE) row$steps <- d_agg_interval$x[match(row$interval,d_agg_interval$Interval)]
+  d.imput <- rbind (d.imput,row)
+}
+```
+(4.4) Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r data analysis, question 4.4}
+
+d.imput_agg <- aggregate (d.imput$steps, by=list(Date=d.imput$date), FUN=sum)
+
+mean(d.imput_agg$x)
+median(d.imput_agg$x)
+
+hist(d.imput_agg$x, breaks=30)
+```
+Yes, there is a slight difference in the shape of the histogram (most notably around 0) following data imputing. The percentage of data imputed is 13.1% of the original dataset.
+
+Mean values before/after imputation: 9354.32/10425.36
+Median values before/after imputation: 10395/10776.19
 
 
+## (5) Are there differences in activity patterns between weekdays and weekends?
 
-## Imputing missing values
+(5.1) Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
 
+I did not use the weekdays() function that was recommended because the value returned is the day of the week, which I would then have to parse to find out whether a day is part of the weekend (i.e. starting with letter 'S'). I found the function isWeekend() much more convenient. We will have to install the corresponding package, though.
+```{r data analysis, question 5.1}
 
+install.packages('timeDate', repos='http://cran.us.r-project.org')
+library(timeDate)
+weekendvec <- isWeekend(d.imput$date)
+d.imput[,"weekend"]<-weekendvec
 
-## Are there differences in activity patterns between weekdays and weekends?
+head(d.imput)
+```
+
+(5.2) Make a panel plot containing a time series plot (i.e. ) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r data analysis, question 5.2}
+
+d.imput.weekdays <- d.imput [which(d.imput$weekend=='FALSE'),]
+d.imput.weekend <- d.imput [which(d.imput$weekend=='TRUE'),]
+
+par(mfrow=c(2,1))
+d.imput.weekdays_interval <- aggregate(d.imput.weekdays$steps, by=list(Interval=d.imput.weekdays$interval), FUN=mean)
+plot (d.imput.weekdays_interval, type="l")
+
+d.imput.weekend_interval <- aggregate(d.imput.weekend$steps, by=list(Interval=d.imput.weekend$interval), FUN=mean)
+plot (d.imput.weekend_interval, type="l")
+
+```
